@@ -1,18 +1,18 @@
 {
     "status_code": 200, 
     "data": {
-        "Policy": "{\"Version\":\"2008-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[\"arn:aws:iam::156460612806:root\",\"arn:aws:iam::127311923021:root\"]},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::nad-s4s-us-east-1-060725138335-alb-access-logs/*\"}]}", 
+        "Policy": "{\"Version\":\"2008-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":[\"arn:aws:iam::127311923021:root\",\"arn:aws:iam::156460612806:root\"]},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::nad-s4s-us-east-1-060725138335-alb-access-logs/*\"}]}", 
         "ResponseMetadata": {
             "HTTPStatusCode": 200, 
             "RetryAttempts": 0, 
-            "HostId": "t71ykmpVzwKBTbg0/VXn5hgiC6zGemYWe4lixITXQL5J9zk90VNZnQ6uJTM7mgclS+kkmygs7BA=", 
-            "RequestId": "B1E60C044056C34A", 
+            "HostId": "ljXzsNX+JfDh3lBHklJsZO8WyimztJMQ22d+xG+D+MeNYKeAGmOMDsDM9JNp0ooe/DB+QjCEu2k=", 
+            "RequestId": "A796DCA58CE4CD59", 
             "HTTPHeaders": {
                 "content-length": "244", 
-                "x-amz-id-2": "t71ykmpVzwKBTbg0/VXn5hgiC6zGemYWe4lixITXQL5J9zk90VNZnQ6uJTM7mgclS+kkmygs7BA=", 
+                "x-amz-id-2": "ljXzsNX+JfDh3lBHklJsZO8WyimztJMQ22d+xG+D+MeNYKeAGmOMDsDM9JNp0ooe/DB+QjCEu2k=", 
                 "server": "AmazonS3", 
-                "x-amz-request-id": "B1E60C044056C34A", 
-                "date": "Tue, 07 Nov 2017 21:19:48 GMT", 
+                "x-amz-request-id": "A796DCA58CE4CD59", 
+                "date": "Tue, 07 Nov 2017 21:52:13 GMT", 
                 "content-type": "application/json"
             }
         }
