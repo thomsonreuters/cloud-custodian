@@ -5,19 +5,9 @@
         "Prefix": "", 
         "Name": "custodian-ssl-test", 
         "ResponseMetadata": {
-            "HTTPStatusCode": 200, 
-            "RetryAttempts": 0, 
-            "HostId": "oIvScB2M6KFN8FhDiOiapJN5KyGogzP2XOyaZA1LwwTxfCUUi+LC+LqEWdCX97dIWDpn7jA9ubM=", 
-            "RequestId": "1CDA0CF16EA5165F", 
-            "HTTPHeaders": {
-                "x-amz-bucket-region": "us-east-1", 
-                "x-amz-id-2": "oIvScB2M6KFN8FhDiOiapJN5KyGogzP2XOyaZA1LwwTxfCUUi+LC+LqEWdCX97dIWDpn7jA9ubM=", 
-                "server": "AmazonS3", 
-                "transfer-encoding": "chunked", 
-                "x-amz-request-id": "1CDA0CF16EA5165F", 
-                "date": "Tue, 07 Nov 2017 21:52:25 GMT", 
-                "content-type": "application/xml"
-            }
+            "HTTPStatusCode": 200,
+            "HostId": "XPHZ3KY+71TRnMIhG4OBNY5oPzmnwBbwH5Csu9FruqEvKol189eXKomb6uaKnD9LASVB1Yy2shk=", 
+            "RequestId": "45A681D9FE4A6DE6"
         }, 
         "Marker": "", 
         "EncodingType": "url", 
