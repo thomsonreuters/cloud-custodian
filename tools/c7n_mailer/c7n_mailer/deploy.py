@@ -50,6 +50,13 @@ def get_archive(config):
         with open(os.path.join(template_dir, t)) as fh:
             archive.add_contents('msg-templates/%s' % t, fh.read())
 
+    black_list_dir = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), '..', 'black-lists'))
+
+    for t in os.listdir(black_list_dir):
+        with open(os.path.join(black_list_dir, t)) as fh:
+            archive.add_contents('black-lists/%s' % t, fh.read())
+
     archive.add_contents('config.json', json.dumps(config))
     archive.add_contents('periodic.py', entry_source)
 
