@@ -323,20 +323,21 @@ def csv_to_list(logger, session):
     black_listed_emails = []
     black_list_dir = os.path.abspath(
         os.path.join(os.path.dirname(__file__), '..', 'black-lists'))
-    for black_list_file in os.listdir(black_list_dir):
-        i = 0
-        try:
-            with open(os.path.join(black_list_dir, black_list_file), 'r') as f:
-                reader = csv.reader(f)
-                for line in reader:
-                    if i == 0:
-                        if line[0] != 'email':
-                            logger.warning("Error: The header value '%s' is unacceptable, must be 'email'!" % (line))
-                            raise
-                    else:
-                        if line[0] not in black_listed_emails:
-                            black_listed_emails.append(line[0].lower())
-                    i += 1
-        except:
-            raise
+    if os.path.isdir(black_list_dir):
+        for black_list_file in os.listdir(black_list_dir):
+            i = 0
+            try:
+                with open(os.path.join(black_list_dir, black_list_file), 'r') as f:
+                    reader = csv.reader(f)
+                    for line in reader:
+                        if i == 0:
+                            if line[0] != 'email':
+                                logger.warning("Error: The header value '%s' is unacceptable, must be 'email'!" % (line))
+                                raise
+                        else:
+                            if line[0] not in black_listed_emails:
+                                black_listed_emails.append(line[0].lower())
+                        i += 1
+            except:
+                raise
     return black_listed_emails
