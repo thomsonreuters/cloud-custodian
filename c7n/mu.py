@@ -787,7 +787,8 @@ class PolicyLambda(AbstractLambdaFunction):
         else:
             events.append(
                 CloudWatchEventSource(
-                    self.policy.data['mode'], session_factory, self.policy.data['mode'].get('function-prefix', 'custodian-')))
+                    self.policy.data['mode'], session_factory,
+                    self.policy.data['mode'].get('function-prefix', 'custodian-')))
         return events
 
     def get_archive(self):
