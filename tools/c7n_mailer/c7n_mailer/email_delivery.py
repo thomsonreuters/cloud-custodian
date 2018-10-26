@@ -20,7 +20,7 @@ import six
 from .ldap_lookup import LdapLookup
 from .utils import (
     format_struct, get_message_subject, get_resource_tag_targets,
-    get_rendered_jinja, kms_decrypt)
+    get_rendered_jinja, kms_decrypt, csv_to_list)
 
 # Those headers are defined as follows:
 #  'X-Priority': 1 (Highest), 2 (High), 3 (Normal), 4 (Low), 5 (Lowest)
@@ -76,6 +76,11 @@ class EmailDelivery(object):
         self.session = session
         self.aws_ses = session.client('ses', region_name=config.get('ses_region'))
         self.ldap_lookup = self.get_ldap_connection()
+        self.black_list = self.get_black_list()
+
+    def get_black_list(self):
+        black_list = csv_to_list(self.logger, self.session)
+        return black_list
 
     def get_ldap_connection(self):
         if self.config.get('ldap_uri'):
@@ -98,7 +103,7 @@ class EmailDelivery(object):
     def get_valid_emails_from_list(self, targets):
         emails = []
         for target in targets:
-            if self.target_is_email(target):
+            if self.target_is_email(target) and self.target_not_on_black_list(target):
                 emails.append(target)
         return emails
 
@@ -258,6 +263,12 @@ class EmailDelivery(object):
             return True
         else:
             return False
+
+    def target_not_on_black_list(self, target):
+        if parseaddr(target)[1].lower() not in self.black_list:
+            return True
+        self.logger.warning("Not sending to %s, it is a member of the black list!" % (target))
+        return False
 
     def send_smtp_email(self, smtp_server, message, to_addrs):
         smtp_port = int(self.config.get('smtp_port', 25))
