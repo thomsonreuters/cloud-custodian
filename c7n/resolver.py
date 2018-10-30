@@ -135,6 +135,39 @@ class ValuesFrom(object):
         contents = text_type(self.resolver.resolve(self.data['url']))
         return contents, format
 
+    def get_columns_and_rows(self):
+        contents, format = self.get_contents()
+        data = csv.DictReader(io.StringIO(contents))
+        maindict = {}
+        for row in data:
+            tempList = []
+            if row['security_group_name'] not in maindict:
+                tempList = self.get_port_range(row['port'], tempList)
+                maindict[row['security_group_name']] = tempList
+            else:
+                tempList = maindict[row['security_group_name']]
+                tempList = self.get_port_range(row['port'], tempList)
+                maindict[row['security_group_name']] = tempList
+        # Return a list of security group names as keys and the port list as values
+        return maindict
+    
+    def get_port_range(self, portRange, tempList):
+        if not portRange == "":
+            if "-" in portRange:
+                tempString = portRange
+                # Split off the hyphen to get the to and form
+                tempArray = tempString.split("-")
+                # Get the range of ports 
+                portList = range(int(tempArray[0]), int(tempArray[1]) + 1)
+                for number in portList:
+                    if number not in tempList:
+                        tempList.append(number)
+            # else if no hyphen add the port to the list
+            else:
+                if portRange not in tempList:
+                    tempList.append(int(portRange))
+            return tempList
+
     def get_values(self):
         contents, format = self.get_contents()
 

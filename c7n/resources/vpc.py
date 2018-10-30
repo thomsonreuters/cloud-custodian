@@ -704,6 +704,42 @@ class UsedSecurityGroup(SGUsage):
         unused = set([g['GroupId'] for g in self.filter_peered_refs(unused)])
         return [r for r in resources if r['GroupId'] not in unused]
 
+@SecurityGroup.filter_registry.register('SGPorts')
+class Test(Filter):
+    def process(self, resources, event=None):
+        values = resolver.ValuesFrom(self.data['value_sg'], self.manager)
+        tempList = []
+        dictionary = values.get_columns_and_rows()
+        print(str(dictionary))
+        for resource in resources:
+            found = None
+            # If the resource is found in the exception list check exceptions
+            if resource['GroupName'] in dictionary:
+                #Iterate through every ip permission
+                for perm in resource['IpPermissions']:
+                    if "FromPort" in perm and "ToPort" in perm:
+                        # Get the range of ports from the permission
+                        portListOnPerm = range(int(perm['FromPort']), int(perm['ToPort']) + 1)
+                        # Get the range of ports from the dictionary
+                        portListFromFile = dictionary[resource['GroupName']]
+                        # For every number in the range from the permission check to see if its excepted
+                        for number in portListOnPerm:
+                            # If it is in the excepted list move on
+                            if number in portListFromFile:
+                                print("Number on permission is located in the exception list")
+                            # If not add it to the violator list
+                            else:
+                                print("Number not in exception list")
+                                tempList.append(resource)
+                    else:
+                        print("If from and to dont exist it must be an -1 open range and a violation")
+                        tempList.append(resource)
+            # If the resource is in the exception list add it to the violators
+            else:
+                tempList.append(resource)
+            if found:
+                tempList.append(resource)
+        return tempList
 
 @SecurityGroup.filter_registry.register('stale')
 class Stale(Filter):
@@ -907,6 +943,8 @@ class SGPermission(Filter):
                     only_found = True
             if self.only_ports and not only_found:
                 found = found is None or found and True or False
+             if self.only_ports and only_found:
+                    found = False
         return found
 
     def _process_cidr(self, cidr_key, cidr_type, range_type, perm):
