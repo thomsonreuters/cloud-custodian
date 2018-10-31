@@ -712,7 +712,6 @@ class Test(Filter):
         dictionary = values.get_columns_and_rows()
         print(str(dictionary))
         for resource in resources:
-            found = None
             # If the resource is found in the exception list check exceptions
             if resource['GroupName'] in dictionary:
                 #Iterate through every ip permission
@@ -730,14 +729,15 @@ class Test(Filter):
                             # If not add it to the violator list
                             else:
                                 print("Number not in exception list")
-                                tempList.append(resource)
+                                if resource in tempList:
+                                    break;
+                                else:
+                                    tempList.append(resource)
                     else:
                         print("If from and to dont exist it must be an -1 open range and a violation")
                         tempList.append(resource)
             # If the resource is in the exception list add it to the violators
             else:
-                tempList.append(resource)
-            if found:
                 tempList.append(resource)
         return tempList
 
