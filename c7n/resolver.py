@@ -135,34 +135,35 @@ class ValuesFrom(object):
         contents = text_type(self.resolver.resolve(self.data['url']))
         return contents, format
 
-    def get_columns_and_rows(self):
+    def get_columns_and_rows(self, safePorts):
         contents, format = self.get_contents()
         data = csv.DictReader(io.StringIO(contents))
         maindict = {}
         for row in data:
             tempList = []
+            portExceptionSet = set(safePorts)
             if row['security_group_name'] not in maindict:
-                tempList = self.get_port_range(row['port'], tempList)
-                maindict[row['security_group_name']] = tempList
+                portExceptionSet |= self.get_port_range(row['port'], tempList)
+                maindict[row['security_group_name']] = portExceptionSet
             else:
-                tempList = maindict[row['security_group_name']]
-                tempList = self.get_port_range(row['port'], tempList)
-                maindict[row['security_group_name']] = tempList
+                portExceptionSet = maindict[row['security_group_name']]
+                portExceptionSet |= self.get_port_range(row['port'], tempList)
+                maindict[row['security_group_name']] = portExceptionSet
         return maindict
     
     def get_port_range(self, portRange, tempList):
+        portSet = set()
         if not portRange == "":
             if "-" in portRange:
                 tempString = portRange
                 tempArray = tempString.split("-")
                 portList = range(int(tempArray[0]), int(tempArray[1]) + 1)
-                for number in portList:
-                    if number not in tempList:
-                        tempList.append(number)
+                portSet |= set(portList)
             else:
-                if portRange not in tempList:
-                    tempList.append(int(portRange))
-            return tempList
+                portSet.add(int(portRange))
+            portSet |= set(tempList)
+        return portSet
+
 
     def get_values(self):
         contents, format = self.get_contents()

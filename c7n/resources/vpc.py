@@ -18,6 +18,7 @@ import operator
 import zlib
 import functools
 import jmespath
+import pprint
 
 from botocore.exceptions import ClientError as BotoClientError
 
@@ -37,6 +38,7 @@ from c7n.utils import (
 from botocore.exceptions import ClientError
 from c7n.resources.shield import IsShieldProtected, SetShieldProtection
 
+pp = pprint.PrettyPrinter(indent=4)
 
 @resources.register('vpc')
 class Vpc(query.QueryResourceManager):
@@ -704,30 +706,57 @@ class UsedSecurityGroup(SGUsage):
         unused = set([g['GroupId'] for g in self.filter_peered_refs(unused)])
         return [r for r in resources if r['GroupId'] not in unused]
 
-@SecurityGroup.filter_registry.register('SGPorts')
+@SecurityGroup.filter_registry.register('except-ports')
 class SecurityGroupCustomException(Filter):
-    def process(self, resources, event=None):
-        values = resolver.ValuesFrom(self.data['value_sg'], self.manager)
-        tempList = []
-        dictionary = values.get_columns_and_rows()
-        for resource in resources:
-            self.addIfViolator(tempList, resource, dictionary)
-        return tempList
+    """Filter to security groups that have ports not in exception file.
 
-    def addIfViolator(self, tempList, resource, dictionary):
-        if resource['GroupName'] in dictionary: 
+    This operates as a complement to the unused filter for multi-step
+    workflows.
+
+    :example:
+
+    .. code-block:: yaml
+
+            policies:
+              - name: non-excepted-security-groups
+                resource: security-group
+                filters:
+                  - except-ports
+                    safe_ports: [443, 80]
+                    value_sg:
+                        url: s3://bucket-name/security-group-exceptions.csv
+                        expr: '"security_group_name"'
+                        format: csv2dict
+    """
+
+    def process(self, resources, event=None):
+        safePorts = list()
+        if 'safe_ports' in self.data:
+            dataSafePorts = self.data['safe_ports']
+            if isinstance(dataSafePorts, str):
+                safePorts.append(dataSafePorts)
+            else:
+                safePorts = dataSafePorts
+        values = resolver.ValuesFrom(self.data['value_sg'], self.manager)
+        filteredList = []
+        exceptionDict = values.get_columns_and_rows(safePorts)
+        for resource in resources:
+            self.addIfViolator(filteredList, resource, exceptionDict)
+        return filteredList
+
+    def addIfViolator(self, filteredList, resource, exceptionDict):
+        resourceIsViolator = False
+        resourceInDictionary = resource['GroupName'] in exceptionDict
+        if resourceInDictionary:
             for perm in resource['IpPermissions']:
                 if "FromPort" in perm and "ToPort" in perm:
-                    portListOnPerm = range(int(perm['FromPort']), int(perm['ToPort']) + 1)
-                    portListFromFile = dictionary[resource['GroupName']]
-                    for number in portListOnPerm:
-                        if number not in portListFromFile:
-                            if resource not in tempList:
-                                tempList.append(resource)
-                                return
-        elif resource not in tempList:
-            tempList.append(resource)
-        return
+                    permPortsSet = set(range(int(perm['FromPort']), int(perm['ToPort']) + 1))
+                    exceptionPortsSet = exceptionDict[resource['GroupName']]
+                    resourceIsViolator = len(permPortsSet - exceptionPortsSet) > 0
+                    if resourceIsViolator:
+                        break
+        if resourceIsViolator or not resourceInDictionary:
+            filteredList.append(resource)
 
 @SecurityGroup.filter_registry.register('stale')
 class Stale(Filter):
