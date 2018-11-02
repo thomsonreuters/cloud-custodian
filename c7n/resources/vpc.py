@@ -18,7 +18,6 @@ import operator
 import zlib
 import functools
 import jmespath
-import pprint
 
 from botocore.exceptions import ClientError as BotoClientError
 
@@ -38,7 +37,6 @@ from c7n.utils import (
 from botocore.exceptions import ClientError
 from c7n.resources.shield import IsShieldProtected, SetShieldProtection
 
-pp = pprint.PrettyPrinter(indent=4)
 
 @resources.register('vpc')
 class Vpc(query.QueryResourceManager):

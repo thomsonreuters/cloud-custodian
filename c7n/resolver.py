@@ -19,6 +19,7 @@ import jmespath
 import json
 import os.path
 import logging
+import re
 from six import text_type
 from six.moves.urllib.request import urlopen
 from six.moves.urllib.parse import parse_qsl, urlparse
@@ -140,26 +141,31 @@ class ValuesFrom(object):
         data = csv.DictReader(io.StringIO(contents))
         maindict = {}
         for row in data:
-            portExceptionSet = set(safePorts)
-            if row['security_group_name'] not in maindict:
-                portExceptionSet |= self.get_port_range(row['port'])
-                maindict[row['security_group_name']] = portExceptionSet
-            else:
+            if row['security_group_name'] in maindict:
                 portExceptionSet = maindict[row['security_group_name']]
-                portExceptionSet |= self.get_port_range(row['port'])
-                maindict[row['security_group_name']] = portExceptionSet
+            else:
+                portExceptionSet = set(safePorts)
+            portExceptionSet |= self.get_port_range(row)
+            maindict[row['security_group_name']] = portExceptionSet
         return maindict
     
-    def get_port_range(self, portRange):
+    def get_port_range(self, row):
         portSet = set()
-        if not portRange == "":
-            if "-" in portRange:
-                tempString = portRange
-                tempArray = tempString.split("-")
-                portList = range(int(tempArray[0]), int(tempArray[1]) + 1)
-                portSet |= set(portList)
+        portRange = row['port']
+        sgName = row['security_group_name']
+        if len(portRange) > 0:
+            regex = re.compile('^((0|[1-9][0-9]*)-(0|[1-9][0-9]*))$|^(0|[1-9][0-9]*)$')
+            validPortRange = regex.match(portRange)
+            if validPortRange:
+                if "-" in portRange:
+                    tempArray = portRange.split("-")
+                    portList = range(int(tempArray[0]), int(tempArray[1]) + 1)
+                    portSet |= set(portList)
+                else:
+                    portSet.add(int(portRange))
             else:
-                portSet.add(int(portRange))
+                raise ValueError(
+                    "Poorly formed port value: '%s' for security group '%s'" % (portRange, sgName))
         return portSet
 
 
