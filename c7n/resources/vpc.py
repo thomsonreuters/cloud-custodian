@@ -708,8 +708,11 @@ class UsedSecurityGroup(SGUsage):
 class SecurityGroupCustomException(Filter):
     """Filter to security groups that have ports not in exception file.
 
-    This operates as a complement to the unused filter for multi-step
+    This operates as a complement to the ingress filter for multi-step
     workflows.
+
+    :arg safe_ports: an array of strings or a single string that represents 
+        the port(s) you would like to except.
 
     :example:
 
@@ -719,7 +722,21 @@ class SecurityGroupCustomException(Filter):
               - name: non-excepted-security-groups
                 resource: security-group
                 filters:
-                  - except-ports
+                - and:
+                    - or:
+                    - type: ingress
+                        Cidr:
+                        value_type: cidr
+                        op: eq
+                        value: 0.0.0.0/0
+                        OnlyPorts: [443, 80]
+                    - type: ingress
+                        CidrV6:
+                        value_type: cidr
+                        op: eq
+                        value: ::/0
+                        OnlyPorts: [443, 80]
+                - type: except-ports
                     safe_ports: [443, 80]
                     value_sg:
                         url: s3://bucket-name/security-group-exceptions.csv
