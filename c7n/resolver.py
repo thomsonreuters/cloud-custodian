@@ -140,18 +140,17 @@ class ValuesFrom(object):
         data = csv.DictReader(io.StringIO(contents))
         maindict = {}
         for row in data:
-            tempList = []
             portExceptionSet = set(safePorts)
             if row['security_group_name'] not in maindict:
-                portExceptionSet |= self.get_port_range(row['port'], tempList)
+                portExceptionSet |= self.get_port_range(row['port'])
                 maindict[row['security_group_name']] = portExceptionSet
             else:
                 portExceptionSet = maindict[row['security_group_name']]
-                portExceptionSet |= self.get_port_range(row['port'], tempList)
+                portExceptionSet |= self.get_port_range(row['port'])
                 maindict[row['security_group_name']] = portExceptionSet
         return maindict
     
-    def get_port_range(self, portRange, tempList):
+    def get_port_range(self, portRange):
         portSet = set()
         if not portRange == "":
             if "-" in portRange:
@@ -161,7 +160,6 @@ class ValuesFrom(object):
                 portSet |= set(portList)
             else:
                 portSet.add(int(portRange))
-            portSet |= set(tempList)
         return portSet
 
 
