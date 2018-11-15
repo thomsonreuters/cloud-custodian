@@ -600,3 +600,38 @@ class TestElbIsNotLoggingFilter(BaseTest):
         self.assertGreater(
             len(resources), 0, "Should find elb not logging " "to otherbucket"
         )
+
+## TR Specific Tests
+
+class TRTestElb(BaseTest):
+    def test_tr_elb_tag_already_exists(self):
+        self.patch(ELB, "executor_factory", MainThreadExecutor)
+        factory = self.replay_flight_data("test_tr_elb_tag_already_exists")
+        p = self.load_policy(
+            {
+                "name": "aws-alb-tag-test",
+                "resource": "elb",
+                "filters": [{"tag:tr:application-asset-insight-id": "present"}],
+            },
+            session_factory=factory,
+        )
+
+        resources = p.run()
+        self.assertEqual(len(resources), 0)
+
+    def test_tr_elb_tag_does_not_exist(self):
+        self.patch(ELB, "executor_factory", MainThreadExecutor)
+        factory = self.replay_flight_data("test_tr_elb_tag_does_not_exist")
+        p = self.load_policy(
+            {
+                "name": "aws-alb-tag-test",
+                "resource": "elb",
+                "filters": [{"tag:tr:application-asset-insight-id": "absent"}],
+            },
+            session_factory=factory,
+        )
+
+        resources = p.run()
+        self.assertEqual(len(resources), 1)
+        self.assertEqual(resources[0]["LoadBalancerName"], "CloudCustodian")
+        
