@@ -319,6 +319,7 @@ def kms_decrypt(config, logger, session, encrypted_field):
         logger.debug("No encrypted value to decrypt.")
         return None
 
+
 def csv_to_list(logger, session):
     black_listed_emails = []
     black_list_dir = os.path.abspath(
@@ -332,12 +333,13 @@ def csv_to_list(logger, session):
                     for line in reader:
                         if i == 0:
                             if line[0] != 'email':
-                                logger.warning("Error: The header value '%s' is unacceptable, must be 'email'!" % (line))
+                                logger.warning(
+                                    "Error: The header value '%s' is unacceptable, must be 'email'!" % (line))
                                 raise
                         else:
                             if line[0] not in black_listed_emails:
                                 black_listed_emails.append(line[0].lower())
                         i += 1
-            except:
+            except BaseException:
                 raise
     return black_listed_emails

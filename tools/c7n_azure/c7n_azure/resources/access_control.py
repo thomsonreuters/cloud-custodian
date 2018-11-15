@@ -70,9 +70,9 @@ class RoleAssignment(QueryResourceManager):
             if resource['properties']['principalId'] in principal_dics.keys():
                 graph_resource = principal_dics[resource['properties']['principalId']]
                 if graph_resource.object_id:
-                   resource['principalName'] = GraphHelper.get_principal_name(graph_resource)
-                   resource['displayName'] = graph_resource.display_name
-                   resource['aadType'] = graph_resource.object_type
+                    resource['principalName'] = GraphHelper.get_principal_name(graph_resource)
+                    resource['displayName'] = graph_resource.display_name
+                    resource['aadType'] = graph_resource.object_type
 
         return resources
 
