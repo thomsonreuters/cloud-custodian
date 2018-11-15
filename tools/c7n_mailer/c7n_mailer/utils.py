@@ -334,8 +334,8 @@ def csv_to_list(logger, session):
                         if i == 0:
                             if line[0] != 'email':
                                 logger.warning(
-                                    "Error: The header value" 
-                                    + " '%s' is unacceptable, must be 'email'!" % (line))
+                                    "Error: The header value" +
+                                    " '%s' is unacceptable, must be 'email'!" % (line))
                                 raise
                         else:
                             if line[0] not in black_listed_emails:
