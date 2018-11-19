@@ -128,6 +128,20 @@ def _filter_ami_snapshots(self, snapshots):
             matches.append(snap)
     return matches
 
+def _filter_nonpublic_snapshots(self, snapshots):
+    if not self.data.get('value', True):
+        return snapshots
+    client = local_session(self.manager.session_factory).client('ec2')
+    publicSnapshots = []
+    for snapshot in snapshots:
+        permissions = self.manager.retry(
+            client.describe_snapshot_attribute,
+            SnapshotId=snapshot['SnapshotId'],
+            Attribute='createVolumePermission')['CreateVolumePermissions']
+        boolPerms = map(lambda x: x.get('Group', False) == 'all', permissions)
+        if any(boolPerms):
+            publicSnapshots.append(snapshot)
+    return publicSnapshots
 
 @Snapshot.filter_registry.register('cross-account')
 class SnapshotCrossAccountAccess(CrossAccountAccessFilter):
@@ -166,6 +180,58 @@ class SnapshotCrossAccountAccess(CrossAccountAccessFilter):
                 r['c7n:CrossAccountViolations'] = list(delta_accounts)
                 results.append(r)
         return results
+
+
+@Snapshot.filter_registry.register('only-public')
+class SnapshotOnlyPublicSnapshots(Filter):
+    """
+    ** WIP:COPY
+
+    Filter to remove snapshots of AMIs from results
+
+    This filter is 'true' by default.
+
+    :example:
+
+    implicit with no parameters, 'true' by default
+
+    .. code-block:: yaml
+
+            policies:
+              - name: delete-stale-snapshots
+                resource: ebs-snapshot
+                filters:
+                  - type: age
+                    days: 28
+                    op: ge
+                  - only-public
+
+    :example:
+
+    explicit with parameter
+
+    .. code-block:: yaml
+
+            policies:
+              - name: delete-snapshots
+                resource: ebs-snapshot
+                filters:
+                  - type: age
+                    days: 28
+                    op: ge
+                  - type: only-public
+                    value: true
+
+    """
+
+    schema = type_schema('only-public', value={'type': 'boolean'})
+
+    def get_permissions(self):
+        return AMI(self.manager.ctx, {}).get_permissions()
+
+    def process(self, snapshots, event=None):
+        resources = _filter_nonpublic_snapshots(self, snapshots)
+        return resources
 
 
 @Snapshot.filter_registry.register('skip-ami-snapshots')
@@ -216,6 +282,76 @@ class SnapshotSkipAmiSnapshots(Filter):
     def process(self, snapshots, event=None):
         resources = _filter_ami_snapshots(self, snapshots)
         return resources
+
+
+@Snapshot.action_registry.register('make-private')
+class SnapshotMakePrivate(BaseAction):
+    """Makes Public EBS snapshots Private
+
+    :example:
+
+    .. code-block:: yaml
+
+            policies:
+              - name: delete-stale-snapshots
+                resource: ebs-snapshot
+                filters:
+                  - type: age
+                    days: 28
+                    op: ge
+                actions:
+                  - make-private
+    """
+
+    schema = type_schema('make-private')
+    permissions = ('ec2:ModifySnapshotAttribute',)
+
+    def process(self, snapshots):
+        self.image_snapshots = set()
+        pre = len(snapshots)
+        snapshots = list(filter(None, _filter_ami_snapshots(self, snapshots)))
+        post = len(snapshots)
+        log.info("Setting %d snapshot attributes, auto-filtered %d ami-snapshots",
+                 post, pre - post)
+
+        with self.executor_factory(max_workers=2) as w:
+            futures = []
+            for snapshot_set in chunks(reversed(snapshots), size=50):
+                futures.append(
+                    w.submit(self.process_snapshot_set, snapshot_set))
+            for f in as_completed(futures):
+                if f.exception():
+                    self.log.error(
+                        "Exception modifying snapshot attribute set \n %s" % (
+                            f.exception()))
+        return snapshots
+
+    @worker
+    def process_snapshot_set(self, snapshots_set):
+        retry = get_retry((
+            'RequestLimitExceeded', 'Client.RequestLimitExceeded'))
+
+        client = local_session(self.manager.session_factory).client('ec2')
+
+        for s in snapshots_set:
+            if s['SnapshotId'] in self.image_snapshots:
+                continue
+            try:
+                retry(client.modify_snapshot_attribute,
+                    SnapshotId=s['SnapshotId'],
+                    Attribute='createVolumePermission',
+                    CreateVolumePermission={
+                        'Remove': [
+                            {
+                                'Group': 'all'
+                            }
+                        ]
+                    },
+                    DryRun=self.manager.config.dryrun)
+            except ClientError as e:
+                if e.response['Error']['Code'] == "InvalidSnapshot.NotFound":
+                    continue
+                raise
 
 
 @Snapshot.action_registry.register('delete')
