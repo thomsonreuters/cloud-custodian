@@ -16,6 +16,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import json
+import boto3
 from botocore.exceptions import ClientError
 from datetime import datetime, timedelta
 
@@ -643,6 +644,7 @@ class EnableTrail(BaseAction):
     schema = type_schema(
         'enable-cloudtrail',
         **{
+            'create-bucket': {'type': 'boolean'},
             'trail': {'type': 'string'},
             'bucket': {'type': 'string'},
             'bucket-region': {'type': 'string'},
@@ -652,7 +654,7 @@ class EnableTrail(BaseAction):
             'file-digest': {'type': 'boolean'},
             'kms': {'type': 'boolean'},
             'kms-key': {'type': 'string'},
-            'required': ('bucket',),
+            'required': ('bucket',)
         }
     )
 
@@ -669,27 +671,38 @@ class EnableTrail(BaseAction):
         file_digest = self.data.get('file-digest', False)
         kms = self.data.get('kms', False)
         kms_key = self.data.get('kms-key', '')
+        create_bucket = self.data.get('create-bucket', False)
 
         s3client = session.client('s3')
+        s3 = boto3.resource('s3')
+        exists = True
         try:
-            s3client.create_bucket(
-                Bucket=bucket_name,
-                CreateBucketConfiguration={'LocationConstraint': bucket_region}
-            )
-        except ClientError as ce:
-            if not ('Error' in ce.response and
-            ce.response['Error']['Code'] == 'BucketAlreadyOwnedByYou'):
-                raise ce
+            s3.meta.client.head_bucket(Bucket=bucket_name)
+        except ClientError as e:
+            error_code = e.response['Error']['Code']
+            if error_code == '404':
+                exists = False
+        if create_bucket:
+            if not exists:
+                try:
+                    s3client.create_bucket(
+                        Bucket=bucket_name,
+                        CreateBucketConfiguration={'LocationConstraint': bucket_region}
+                    )
+                except ClientError as ce:
+                    if not ('Error' in ce.response and
+                    ce.response['Error']['Code'] == 'BucketAlreadyOwnedByYou'):
+                        raise ce
 
-        try:
-            current_policy = s3client.get_bucket_policy(Bucket=bucket_name)
-        except ClientError:
-            current_policy = None
+            try:
+                current_policy = s3client.get_bucket_policy(Bucket=bucket_name)
+            except ClientError:
+                current_policy = None
 
-        policy_json = cloudtrail_policy(
-            current_policy, bucket_name, self.manager.config.account_id)
+            policy_json = cloudtrail_policy(
+                current_policy, bucket_name, self.manager.config.account_id)
 
-        s3client.put_bucket_policy(Bucket=bucket_name, Policy=policy_json)
+            s3client.put_bucket_policy(Bucket=bucket_name, Policy=policy_json)
         trails = client.describe_trails().get('trailList', ())
         if trail_name not in [t.get('Name') for t in trails]:
             new_trail = client.create_trail(
