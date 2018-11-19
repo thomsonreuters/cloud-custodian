@@ -49,7 +49,7 @@ class TestConfig(Config):
     config_args = {
         "metrics_enabled": False,
         "account_id": ACCOUNT_ID,
-        "output_dir": "s3://jacobktload/tests",
+        "output_dir": "s3://test-example/foo",
     }
 
     empty = staticmethod(partial(Config.empty, **config_args))
