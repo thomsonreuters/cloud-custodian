@@ -36,7 +36,7 @@ lint:
 clean:
 	rm -rf .tox .Python bin include lib pip-selfcheck.json
 
-docker-image:
+docker-interactive-image:
 	docker build -f Dockerfile.interactive -t docker-c7n-image .
 
 docker-interactive:
