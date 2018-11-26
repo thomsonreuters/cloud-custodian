@@ -39,9 +39,9 @@ clean:
 docker-image:
 	docker build -f Dockerfile.interactive -t docker-c7n-image .
 
-docker-interactive: docker-image
+docker-interactive:
 	docker run -it --rm \
-	-e AWS_ACCESS_KEY_ID=`aws --profile default configure get aws_access_key_id` \
-	-e AWS_SECRET_ACCESS_KEY=`aws --profile default configure get aws_secret_access_key` \
-	-e AWS_SESSION_TOKEN=`aws --profile default configure get aws_session_token` \
+	-e AWS_ACCESS_KEY_ID=`aws configure get aws_access_key_id` \
+	-e AWS_SECRET_ACCESS_KEY=`aws configure get aws_secret_access_key` \
+	-e AWS_SESSION_TOKEN=`aws configure get aws_session_token` \
 	docker-c7n-image
