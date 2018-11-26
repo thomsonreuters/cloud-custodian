@@ -37,7 +37,7 @@ clean:
 	rm -rf .tox .Python bin include lib pip-selfcheck.json
 
 docker-image:
-	docker build -t docker-c7n-image .
+	docker build -f Dockerfile.interactive -t docker-c7n-image .
 
 docker-interactive: docker-image
 	docker run -it --rm \
