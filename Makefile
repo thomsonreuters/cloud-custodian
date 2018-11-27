@@ -59,3 +59,12 @@ lint:
 clean:
 	rm -rf .tox .Python bin include lib pip-selfcheck.json
 
+docker-interactive-image:
+	docker build -f Dockerfile.interactive -t docker-c7n-image .
+
+docker-interactive: docker-interactive-image
+	docker run -it --rm \
+	-e AWS_ACCESS_KEY_ID=`aws configure get aws_access_key_id` \
+	-e AWS_SECRET_ACCESS_KEY=`aws configure get aws_secret_access_key` \
+	-e AWS_SESSION_TOKEN=`aws configure get aws_session_token` \
+	docker-c7n-image
