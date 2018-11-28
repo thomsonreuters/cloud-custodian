@@ -500,6 +500,21 @@ class ValueFilter(Filter):
             return value, sentinel
         elif self.vtype == 'age':
             if not isinstance(sentinel, datetime.datetime):
+                # Adding in check if age is a list: unpack it
+                if isinstance(sentinel, dict):
+                    days = sentinel.get('days',0)
+                    hours = sentinel.get('hours',0)
+                    minutes = sentinel.get('minutes',0)
+                    timeList = [days, hours, minutes]
+                    if all(map(lambda x: isinstance(x, int), timeList)):
+                        sentinel = {
+                            "days": days,
+                            "hours": hours,
+                            "minutes": minutes
+                            }
+                    else:
+                        raise PolicyValidationError(
+                            "Invalid value for age: %s" % str(sentinel))
                 sentinel = datetime.datetime.now(tz=tzutc()) - timedelta(sentinel)
             if isinstance(value, (str, int, float)):
                 try:
