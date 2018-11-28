@@ -128,6 +128,7 @@ def _filter_ami_snapshots(self, snapshots):
             matches.append(snap)
     return matches
 
+
 def _filter_nonpublic_snapshots(self, snapshots):
     if not self.data.get('value', True):
         return snapshots
@@ -142,6 +143,7 @@ def _filter_nonpublic_snapshots(self, snapshots):
         if any(boolPerms):
             publicSnapshots.append(snapshot)
     return publicSnapshots
+
 
 @Snapshot.filter_registry.register('cross-account')
 class SnapshotCrossAccountAccess(CrossAccountAccessFilter):

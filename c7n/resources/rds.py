@@ -1036,6 +1036,7 @@ class PublicSnapshot(Filter):
     """
     schema = type_schema('public')
     permissions = ('rds:DescribeDBSnapshotAttributes',)
+
     def process(self, resources, event=None):
         client = local_session(self.manager.session_factory).client('rds')
         results = []
@@ -1373,6 +1374,7 @@ class RDSSnapshotDelete(BaseAction):
             c.delete_db_snapshot(
                 DBSnapshotIdentifier=s['DBSnapshotIdentifier'])
 
+
 @RDSSnapshot.action_registry.register('make-private')
 class RDSSnapshotMakePrivate(BaseAction):
     """Makes an RDS snapshot resource private by removing 'all' from the
@@ -1389,6 +1391,7 @@ class RDSSnapshotMakePrivate(BaseAction):
     """
     schema = type_schema('make-private')
     permissions = ('rds:ModifyDBSnapshotAttribute',)
+
     def process(self, snapshots):
         log.info("Making %d rds snapshots private", len(snapshots))
         with self.executor_factory(max_workers=3) as w:
@@ -1402,14 +1405,15 @@ class RDSSnapshotMakePrivate(BaseAction):
                         "Exception making private snapshot set \n %s",
                         f.exception())
         return snapshots
+
     def process_snapshot_set(self, snapshots_set):
         c = local_session(self.manager.session_factory).client('rds')
         for s in snapshots_set:
             c.modify_db_snapshot_attribute(
                 DBSnapshotIdentifier=s['DBSnapshotIdentifier'],
                 AttributeName='restore',
-                ValuesToRemove=['all',]
-                )
+                ValuesToRemove=['all', ]
+            )
 
 
 @actions.register('modify-security-groups')
