@@ -600,4 +600,3 @@ class TestElbIsNotLoggingFilter(BaseTest):
         self.assertGreater(
             len(resources), 0, "Should find elb not logging " "to otherbucket"
         )
-        

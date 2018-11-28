@@ -504,10 +504,10 @@ class ValueFilter(Filter):
                 if isinstance(sentinel, dict):
                     validKeys = ('days', 'hours', 'minutes')
                     if not (all(map(lambda x: isinstance(x, int), sentinel.values())) and
-                        all(k in validKeys for k in sentinel) and
-                        len(sentinel.keys()) <= len(validKeys)):
-                            raise PolicyValidationError(
-                                "Invalid value for age: %s" % str(sentinel))
+                            all(k in validKeys for k in sentinel) and
+                            len(sentinel.keys()) <= len(validKeys)):
+                        raise PolicyValidationError(
+                            "Invalid value for age: %s" % str(sentinel))
                 sentinel = datetime.datetime.now(tz=tzutc()) - timedelta(sentinel)
             if isinstance(value, (str, int, float)):
                 try:
