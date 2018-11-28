@@ -503,19 +503,9 @@ class ValueFilter(Filter):
                 # Adding in check if age is a list: unpack it
                 if isinstance(sentinel, dict):
                     validKeys = ('days', 'hours', 'minutes')
-                    timeList = []
-                    days = sentinel.get('days', 0)
-                    hours = sentinel.get('hours', 0)
-                    minutes = sentinel.get('minutes', 0)
-                    timeList = [days, hours, minutes]
-                    if (all(map(lambda x: isinstance(x, int), timeList)) and
-                        all(k in validKeys for k in sentinel) and len(sentinel.keys()) <= len(validKeys)):
-                        sentinel = {
-                            "days": days,
-                            "hours": hours,
-                            "minutes": minutes
-                        }
-                    else:
+                    if not (all(map(lambda x: isinstance(x, int), sentinel.values())) and
+                        all(k in validKeys for k in sentinel) and 
+                        len(sentinel.keys()) <= len(validKeys)):
                         raise PolicyValidationError(
                             "Invalid value for age: %s" % str(sentinel))
                 sentinel = datetime.datetime.now(tz=tzutc()) - timedelta(sentinel)
