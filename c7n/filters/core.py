@@ -502,11 +502,13 @@ class ValueFilter(Filter):
             if not isinstance(sentinel, datetime.datetime):
                 # Adding in check if age is a list: unpack it
                 if isinstance(sentinel, dict):
-                    days = sentinel.get('days',0)
-                    hours = sentinel.get('hours',0)
-                    minutes = sentinel.get('minutes',0)
+                    validKeys = ('days', 'hours', 'minutes')
+                    days = sentinel.get('days', 0)
+                    hours = sentinel.get('hours', 0)
+                    minutes = sentinel.get('minutes', 0)
                     timeList = [days, hours, minutes]
-                    if all(map(lambda x: isinstance(x, int), timeList)):
+                    if (all(map(lambda x: isinstance(x, int), timeList)) and
+                        all(k in validKeys for k in sentinel) and len(sentinel.keys()) <= 3):
                         sentinel = {
                             "days": days,
                             "hours": hours,
