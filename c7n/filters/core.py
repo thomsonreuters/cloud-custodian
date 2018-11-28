@@ -508,7 +508,7 @@ class ValueFilter(Filter):
                     minutes = sentinel.get('minutes', 0)
                     timeList = [days, hours, minutes]
                     if (all(map(lambda x: isinstance(x, int), timeList)) and
-                        all(k in validKeys for k in sentinel) and len(sentinel.keys()) <= 3):
+                        all(k in validKeys for k in sentinel) and len(sentinel.keys()) <= len(validKeys)):
                         sentinel = {
                             "days": days,
                             "hours": hours,
