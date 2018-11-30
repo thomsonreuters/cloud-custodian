@@ -59,6 +59,13 @@ lint:
 clean:
 	rm -rf .tox .Python bin include lib pip-selfcheck.json
 
+docker-test-image:
+	docker build -f Dockerfile.test -t docker-c7n-test-image .
+
+docker-test: docker-test-image
+	docker run -it --rm \
+	docker-c7n-test-image
+
 docker-interactive-image:
 	docker build -f Dockerfile.interactive -t docker-c7n-image .
 

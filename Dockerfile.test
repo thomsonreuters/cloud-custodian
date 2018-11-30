@@ -1,0 +1,12 @@
+FROM ubuntu:18.04
+
+ENV TEST_VAR='test'
+
+RUN apt-get update -y
+RUN apt-get install python-pip python-dev python-pytest git -y
+
+ADD . /src
+WORKDIR /src
+
+RUN pip install -U pip virtualenv tox
+RUN pip install -r requirements-dev.txt
