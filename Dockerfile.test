@@ -8,4 +8,6 @@ WORKDIR /src
 
 RUN pip install virtualenv
 
+ENV C7N_TEST_WORKERS=8
+
 ENTRYPOINT ["./docker-test-entrypoint.sh"]
