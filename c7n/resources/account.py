@@ -409,8 +409,8 @@ class ServiceLimit(Filter):
         'service-limit',
         threshold={'type': 'number'},
         refresh_period={'type': 'integer'},
-        only_limits={'type': 'array', 'items': {'type': 'string'}},
-        only_services={'type': 'array', 'items': {
+        limits={'type': 'array', 'items': {'type': 'string'}},
+        services={'type': 'array', 'items': {
             'enum': ['EC2', 'ELB', 'VPC', 'AutoScaling',
                      'RDS', 'EBS', 'SES', 'IAM']}},
         except_limits={'type': 'array', 'items': {'type': 'string'}},
@@ -448,9 +448,9 @@ class ServiceLimit(Filter):
         if datetime.now(tz=tzutc()) - delta > check_date:
             client.refresh_trusted_advisor_check(checkId=self.check_id)
         threshold = self.data.get('threshold')
-        only_services = self.data.get('only_services', [])
+        services = self.data.get('services', [])
         except_services = self.data.get('except_services', []) 
-        only_limits = self.data.get('only_limits', [])
+        limits = self.data.get('limits', [])
         except_limits = self.data.get('except_limits', [])
         exceeded = []
 
@@ -459,10 +459,10 @@ class ServiceLimit(Filter):
                 self.log.debug("**SKIPPING1**" + str([resource['metadata'][1], resource['metadata'][2]]))
                 continue
             limit = dict(zip(self.check_limit, resource['metadata']))
-            if (only_services and limit['service'] not in only_services) or (except_services and limit['service'] in except_services):
+            if (services and limit['service'] not in services) or (except_services and limit['service'] in except_services):
                 self.log.debug("**SKIPPING2**" + str([resource['metadata'][1], resource['metadata'][2]]))
                 continue
-            if (only_limits and limit['check'] not in only_limits) or (except_limits and limit['check'] in except_limits):
+            if (limits and limit['check'] not in limits) or (except_limits and limit['check'] in except_limits):
                 self.log.debug("**SKIPPING3**" + str([resource['metadata'][1], resource['metadata'][2]]))
                 continue
             limit['status'] = resource['status']
