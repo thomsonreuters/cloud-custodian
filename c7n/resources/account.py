@@ -412,6 +412,10 @@ class ServiceLimit(Filter):
         limits={'type': 'array', 'items': {'type': 'string'}},
         services={'type': 'array', 'items': {
             'enum': ['EC2', 'ELB', 'VPC', 'AutoScaling',
+                     'RDS', 'EBS', 'SES', 'IAM']}},
+        except_limits={'type': 'array', 'items': {'type': 'string'}},
+        except_services={'type': 'array', 'items': {
+            'enum': ['EC2', 'ELB', 'VPC', 'AutoScaling',
                      'RDS', 'EBS', 'SES', 'IAM']}})
 
     permissions = ('support:DescribeTrustedAdvisorCheckResult',)
@@ -444,18 +448,21 @@ class ServiceLimit(Filter):
         if datetime.now(tz=tzutc()) - delta > check_date:
             client.refresh_trusted_advisor_check(checkId=self.check_id)
         threshold = self.data.get('threshold')
-
-        services = self.data.get('services')
-        limits = self.data.get('limits')
+        services = self.data.get('services', [])
+        except_services = self.data.get('except_services', [])
+        limits = self.data.get('limits', [])
+        except_limits = self.data.get('except_limits', [])
         exceeded = []
 
         for resource in checks['flaggedResources']:
             if threshold is None and resource['status'] == 'ok':
                 continue
             limit = dict(zip(self.check_limit, resource['metadata']))
-            if services and limit['service'] not in services:
+            if ((services and limit['service'] not in services) or
+                (except_services and limit['service'] in except_services)):
                 continue
-            if limits and limit['check'] not in limits:
+            if ((limits and limit['check'] not in limits) or
+                (except_limits and limit['check'] in except_limits)):
                 continue
             limit['status'] = resource['status']
             limit['percentage'] = float(limit['extant'] or 0) / float(
@@ -463,6 +470,7 @@ class ServiceLimit(Filter):
             if threshold and limit['percentage'] < threshold:
                 continue
             exceeded.append(limit)
+
         if exceeded:
             resources[0]['c7n:ServiceLimitsExceeded'] = exceeded
             return resources
