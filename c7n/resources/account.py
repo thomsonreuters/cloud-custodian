@@ -456,32 +456,21 @@ class ServiceLimit(Filter):
 
         for resource in checks['flaggedResources']:
             if threshold is None and resource['status'] == 'ok':
-                self.log.debug("**SKIPPING1**" + str([resource['metadata'][1], resource['metadata'][2]]))
                 continue
             limit = dict(zip(self.check_limit, resource['metadata']))
             if (services and limit['service'] not in services) or (except_services and limit['service'] in except_services):
-                self.log.debug("**SKIPPING2**" + str([resource['metadata'][1], resource['metadata'][2]]))
                 continue
             if (limits and limit['check'] not in limits) or (except_limits and limit['check'] in except_limits):
-                self.log.debug("**SKIPPING3**" + str([resource['metadata'][1], resource['metadata'][2]]))
                 continue
             limit['status'] = resource['status']
             limit['percentage'] = float(limit['extant'] or 0) / float(
                 limit['limit']) * 100
             if threshold and limit['percentage'] < threshold:
-                self.log.debug("**SKIPPING4**" + str([resource['metadata'][1], resource['metadata'][2]]))
                 continue
-            self.log.debug("**APPENDING**" + str([limit['service'], limit['check']]))
             exceeded.append(limit)
 
         if exceeded:
             resources[0]['c7n:ServiceLimitsExceeded'] = exceeded
-            self.log.debug(" ---- matched service limits ----")
-            for item in resources[0]['c7n:ServiceLimitsExceeded']:
-                self.log.debug([item['service'], item['check']])
-            self.log.debug("Total #: " + str(len(resources[0]['c7n:ServiceLimitsExceeded'])))
-            self.log.debug(" --------------------------------")
-            self.log.debug("\n")
             return resources
         return []
 
