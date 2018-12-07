@@ -458,11 +458,11 @@ class ServiceLimit(Filter):
             if threshold is None and resource['status'] == 'ok':
                 continue
             limit = dict(zip(self.check_limit, resource['metadata']))
-            if (services and limit['service'] not in services) or 
-               (except_services and limit['service'] in except_services):
+            if ((services and limit['service'] not in services) or
+                (except_services and limit['service'] in except_services)):
                 continue
-            if (limits and limit['check'] not in limits) or 
-               (except_limits and limit['check'] in except_limits):
+            if ((limits and limit['check'] not in limits) or
+                (except_limits and limit['check'] in except_limits)):
                 continue
             limit['status'] = resource['status']
             limit['percentage'] = float(limit['extant'] or 0) / float(
