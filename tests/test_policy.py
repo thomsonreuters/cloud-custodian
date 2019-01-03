@@ -222,6 +222,7 @@ class PolicyPermissions(BaseTest):
                     "instance-age",
                     "ephemeral",
                     "instance-uptime",
+                    "except-ports",
                 ):
                     continue
                 qk = "%s.filters.%s" % (k, n)

@@ -743,7 +743,23 @@ class SecurityGroupCustomException(Filter):
                         expr: '"security_group_name"'
                         format: csv2dict
     """
-
+    schema = {
+        'type': 'object',
+        'properties': {
+            'type': {
+                'enum': [
+                    'except-ports'
+                ]
+            },
+            'safe_ports': {
+                'type': 'array',
+                'items': {
+                    'type': 'string'
+                }
+            }
+        }
+    }
+    
     def process(self, resources, event=None):
         safePorts = list()
         if 'safe_ports' in self.data:
