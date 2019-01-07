@@ -53,14 +53,19 @@ import six
 
 from botocore.client import Config
 from botocore.exceptions import ClientError
-from botocore.vendored.requests.exceptions import SSLError
 
 from collections import defaultdict
 from concurrent.futures import as_completed
 from dateutil.parser import parse as parse_date
+try:
+    from urllib3.exceptions import SSLError
+except ImportError:
+    from botocore.vendored.requests.packages.urllib3.exceptions import SSLError
+
 
 from c7n.actions import (
     ActionRegistry, BaseAction, PutMetric, RemovePolicyBase)
+from c7n.actions.securityhub import PostFinding
 from c7n.exceptions import PolicyValidationError
 from c7n.filters import (
     FilterRegistry, Filter, CrossAccountAccessFilter, MetricsFilter,
@@ -69,7 +74,7 @@ from c7n.manager import resources
 from c7n import query
 from c7n.tags import RemoveTag, Tag, TagActionFilter, TagDelayedAction
 from c7n.utils import (
-    chunks, local_session, set_annotation, type_schema,
+    chunks, local_session, set_annotation, type_schema, filter_empty,
     dumps, format_string_values, get_account_alias_from_sts)
 
 
@@ -99,10 +104,6 @@ class S3(query.QueryResourceManager):
 
     filter_registry = filters
     action_registry = actions
-
-    def __init__(self, ctx, data):
-        super(S3, self).__init__(ctx, data)
-        self.log_dir = ctx.log_dir
 
     def get_source(self, source_type):
         if source_type == 'describe':
@@ -726,6 +727,24 @@ class BucketActionBase(BaseAction):
             return results
 
 
+@S3.action_registry.register("post-finding")
+class BucketFinding(PostFinding):
+    def format_resource(self, r):
+        owner = r.get("Acl", {}).get("Owner", {})
+        resource = {
+            "Type": "AwsS3Bucket",
+            "Id": "arn:aws:::{}".format(r["Name"]),
+            "Region": get_region(r),
+            "Tags": {t["Key"]: t["Value"] for t in r.get("Tags", [])},
+            "Details": {"AwsS3Bucket": {"OwnerId": owner.get('ID', 'Unknown')}}
+        }
+
+        if "DisplayName" in owner:
+            resource["Details"]["AwsS3Bucket"]["OwnerName"] = owner['DisplayName']
+
+        return filter_empty(resource)
+
+
 @filters.register('has-statement')
 class HasStatementFilter(Filter):
     """Find buckets with set of policy statements.
@@ -1264,7 +1283,7 @@ class ToggleLogging(BucketActionBase):
 
         for r in resources:
             client = bucket_client(session, r)
-            is_logging = bool(r['Logging'])
+            is_logging = bool(r.get('Logging'))
 
             if enabled and not is_logging:
                 variables = {
@@ -1601,10 +1620,10 @@ class ScanBucket(BucketActionBase):
         return results
 
     def write_denied_buckets_file(self):
-        if self.denied_buckets and self.manager.log_dir:
+        if self.denied_buckets and self.manager.ctx.log_dir:
             with open(
                     os.path.join(
-                        self.manager.log_dir, 'denied.json'), 'w') as fh:
+                        self.manager.ctx.log_dir, 'denied.json'), 'w') as fh:
                 json.dump(list(self.denied_buckets), fh, indent=2)
             self.denied_buckets = set()
 
@@ -1622,7 +1641,7 @@ class ScanBucket(BucketActionBase):
         p = s3.get_paginator(
             self.get_bucket_op(b, 'iterator')).paginate(Bucket=b['Name'])
 
-        with BucketScanLog(self.manager.log_dir, b['Name']) as key_log:
+        with BucketScanLog(self.manager.ctx.log_dir, b['Name']) as key_log:
             with self.executor_factory(max_workers=10) as w:
                 try:
                     return self._process_bucket(b, p, key_log, w)
@@ -2003,7 +2022,7 @@ class LogTarget(Filter):
     def get_s3_bucket_locations(buckets, self_log=False):
         """return (bucket_name, prefix) for all s3 logging targets"""
         for b in buckets:
-            if b['Logging']:
+            if b.get('Logging'):
                 if self_log:
                     if b['Name'] != b['Logging']['TargetBucket']:
                         continue

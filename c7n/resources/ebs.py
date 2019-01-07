@@ -690,7 +690,7 @@ class HealthFilter(HealthEventFilter):
         paginator = client.get_paginator('describe_events')
         events = list(itertools.chain(
             *[p['events']for p in paginator.paginate(filter=f)]))
-        entities = self.process_event(events)
+        entities = self.process_event(client, events)
 
         event_map = {e['arn']: e for e in events}
         config = local_session(self.manager.session_factory).client('config')
@@ -911,11 +911,6 @@ class EncryptInstanceVolumes(BaseAction):
         'ec2:DeleteTags')
 
     def validate(self):
-        key = self.data.get('key')
-        if not key:
-            raise ValueError(
-                "action:encrypt-instance-volume "
-                "requires kms keyid/alias specified")
         self.verbose = self.data.get('verbose', False)
         return self
 
