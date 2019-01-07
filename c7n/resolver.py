@@ -19,6 +19,7 @@ import jmespath
 import json
 import os.path
 import logging
+import re
 from six import text_type
 from six.moves.urllib.request import urlopen
 from six.moves.urllib.parse import parse_qsl, urlparse
@@ -134,6 +135,39 @@ class ValuesFrom(object):
                 format, self.data['url'])
         contents = text_type(self.resolver.resolve(self.data['url']))
         return contents, format
+
+    def get_columns_and_rows(self, safePorts):
+        contents, format = self.get_contents()
+        data = csv.DictReader(io.StringIO(contents))
+        maindict = {}
+        for row in data:
+            if row['security_group_name'] in maindict:
+                portExceptionSet = maindict[row['security_group_name']]
+            else:
+                portExceptionSet = set(safePorts)
+            portExceptionSet |= self.get_port_range(row)
+            maindict[row['security_group_name']] = portExceptionSet
+        return maindict
+    
+    def get_port_range(self, row):
+        portSet = set()
+        portRange = row['port']
+        sgName = row['security_group_name']
+        if len(portRange) > 0:
+            regex = re.compile('^((0|[1-9][0-9]*)-(0|[1-9][0-9]*))$|^(0|[1-9][0-9]*)$')
+            validPortRange = regex.match(portRange)
+            if validPortRange:
+                if "-" in portRange:
+                    tempArray = portRange.split("-")
+                    portList = range(int(tempArray[0]), int(tempArray[1]) + 1)
+                    portSet |= set(portList)
+                else:
+                    portSet.add(int(portRange))
+            else:
+                raise ValueError(
+                    "Poorly formed port value: '%s' for security group '%s'" % (portRange, sgName))
+        return portSet
+
 
     def get_values(self):
         contents, format = self.get_contents()
