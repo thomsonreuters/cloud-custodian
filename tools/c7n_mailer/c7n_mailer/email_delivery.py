@@ -13,6 +13,7 @@
 # limitations under the License.
 import smtplib
 from email.mime.text import MIMEText
+from email.utils import parseaddr
 from itertools import chain
 import six
 
