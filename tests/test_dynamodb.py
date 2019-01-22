@@ -15,7 +15,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 from .common import BaseTest
 import datetime
-from dateutil import zoneinfo
+from dateutil import tz as tzutil
 
 from c7n.resources.dynamodb import DeleteTable
 from c7n.executor import MainThreadExecutor
@@ -80,6 +80,27 @@ class DynamodbTest(BaseTest):
         tag_map = {t["Key"]: t["Value"] for t in tags["Tags"]}
         self.assertTrue("test_key" in tag_map)
 
+    def test_kms_key_filter(self):
+        session_factory = self.replay_flight_data("test_dynamodb_kms_key_filter")
+        p = self.load_policy(
+            {
+                "name": "dynamodb-kms-key-filters",
+                "resource": "dynamodb-table",
+                "filters": [
+                    {
+                        "type": "kms-key",
+                        "key": "c7n:AliasName",
+                        "value": "^(alias/aws/dynamodb)",
+                        "op": "regex"
+                    }
+                ]
+            },
+            session_factory=session_factory,
+        )
+        resources = p.run()
+        self.assertEqual(len(resources), 1)
+        self.assertEqual(resources[0]["TableName"], "test-table-kms-filter")
+
     def test_dynamodb_mark(self):
         session_factory = self.replay_flight_data("test_dynamodb_mark")
         client = session_factory().client("dynamodb")
@@ -108,7 +129,7 @@ class DynamodbTest(BaseTest):
         tags = client.list_tags_of_resource(ResourceArn=arn)
         tag_map = {t["Key"]: t["Value"] for t in tags["Tags"]}
 
-        localtz = zoneinfo.gettz("America/New_York")
+        localtz = tzutil.gettz("America/New_York")
         dt = datetime.datetime.now(localtz)
         dt = dt.replace(year=2018, month=6, day=8, hour=7, minute=00)
         result = datetime.datetime.strptime(

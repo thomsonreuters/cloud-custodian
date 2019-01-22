@@ -21,7 +21,7 @@ import shutil
 import tempfile
 
 from c7n import policy, manager
-from c7n.exceptions import ResourceLimitExceeded
+from c7n.exceptions import ResourceLimitExceeded, PolicyValidationError
 from c7n.resources.aws import AWS
 from c7n.resources.ec2 import EC2
 from c7n.utils import dumps
@@ -137,7 +137,7 @@ class PolicyPermissions(BaseTest):
             if not getattr(v.resource_type, "config_type", None):
                 continue
 
-            p = Bag({"name": "permcheck", "resource": k})
+            p = Bag({"name": "permcheck", "resource": k, 'provider_name': 'aws'})
             ctx = self.get_context(config=cfg, policy=p)
             mgr = v(ctx, p)
 
@@ -171,8 +171,7 @@ class PolicyPermissions(BaseTest):
         cfg = Config.empty()
 
         for k, v in manager.resources.items():
-            p = Bag({"name": "permcheck", "resource": k})
-
+            p = Bag({"name": "permcheck", "resource": k, 'provider_name': 'aws'})
             ctx = self.get_context(config=cfg, policy=p)
 
             mgr = v(ctx, p)
@@ -222,6 +221,7 @@ class PolicyPermissions(BaseTest):
                     "instance-age",
                     "ephemeral",
                     "instance-uptime",
+                    "except-ports",
                 ):
                     continue
                 qk = "%s.filters.%s" % (k, n)
@@ -258,6 +258,28 @@ class TestPolicyCollection(BaseTest):
 
         collection = AWS().initialize_policies(original, Config.empty(regions=["all"]))
         self.assertEqual(len(collection), 1)
+
+    def test_policy_expand_group_region(self):
+        cfg = Config.empty(regions=["us-east-1", "us-east-2", "us-west-2"])
+        original = policy.PolicyCollection.from_data(
+            {"policies": [
+                {"name": "bar", "resource": "lambda"},
+                {"name": "middle", "resource": "security-group"},
+                {"name": "foo", "resource": "ec2"}]},
+            cfg)
+
+        collection = AWS().initialize_policies(original, cfg)
+        self.assertEqual(
+            [(p.name, p.options.region) for p in collection],
+            [('bar', 'us-east-1'),
+             ('middle', 'us-east-1'),
+             ('foo', 'us-east-1'),
+             ('bar', 'us-east-2'),
+             ('middle', 'us-east-2'),
+             ('foo', 'us-east-2'),
+             ('bar', 'us-west-2'),
+             ('middle', 'us-west-2'),
+             ('foo', 'us-west-2')])
 
     def test_policy_region_expand_global(self):
         original = policy.PolicyCollection.from_data(
@@ -522,6 +544,7 @@ class TestPolicy(BaseTest):
             self.load_policy,
             policy,
             config=config,
+            validate=True,
             session_factory=session_factory
         )
 
@@ -754,7 +777,7 @@ class PullModeTest(BaseTest):
             config={'region': 'us-west-2', 'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), False)
+        self.assertEqual(pull_mode.is_runnable(), False)
 
     def test_is_runnable_dates(self):
         p = self.load_policy(
@@ -765,7 +788,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), True)
+        self.assertEqual(pull_mode.is_runnable(), True)
 
         tomorrow_date = str(datetime.date(datetime.utcnow()) + timedelta(days=1))
         p = self.load_policy(
@@ -776,7 +799,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), False)
+        self.assertEqual(pull_mode.is_runnable(), False)
 
         p = self.load_policy(
             {'name': 'good-end-date',
@@ -786,7 +809,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), True)
+        self.assertEqual(pull_mode.is_runnable(), True)
 
         p = self.load_policy(
             {'name': 'bad-end-date',
@@ -796,7 +819,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), False)
+        self.assertEqual(pull_mode.is_runnable(), False)
 
         p = self.load_policy(
             {'name': 'bad-start-end-date',
@@ -807,7 +830,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), False)
+        self.assertEqual(pull_mode.is_runnable(), False)
 
     def test_is_runnable_parse_dates(self):
         p = self.load_policy(
@@ -818,7 +841,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), True)
+        self.assertEqual(pull_mode.is_runnable(), True)
 
         p = self.load_policy(
             {'name': 'parse-date-policy',
@@ -828,7 +851,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), True)
+        self.assertEqual(pull_mode.is_runnable(), True)
 
         p = self.load_policy(
             {'name': 'parse-date-policy',
@@ -838,7 +861,7 @@ class PullModeTest(BaseTest):
             config={'validate': True},
             session_factory=None)
         pull_mode = policy.PullMode(p)
-        self.assertEquals(pull_mode.is_runnable(), True)
+        self.assertEqual(pull_mode.is_runnable(), True)
 
 
 class GuardModeTest(BaseTest):
@@ -850,6 +873,16 @@ class GuardModeTest(BaseTest):
             {"name": "vpc", "resource": "vpc", "mode": {"type": "guard-duty"}},
             validate=True,
         )
+
+    def test_lambda_policy_validate_name(self):
+        name = "ec2-instance-guard-D8488F01-0E3E-4772-A3CB-E66EEBB9BDF4"
+        with self.assertRaises(PolicyValidationError) as e_cm:
+            self.load_policy(
+                {"name": name,
+                 "resource": "ec2",
+                 "mode": {"type": "guard-duty"}},
+                validate=True)
+        self.assertTrue("max length with prefix" in str(e_cm.exception))
 
     @mock.patch("c7n.mu.LambdaManager.publish")
     def test_ec2_guard_event_pattern(self, publish):

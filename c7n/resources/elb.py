@@ -330,7 +330,7 @@ class ELBModifyVpcSecurityGroups(ModifyVpcSecurityGroupsAction):
     def process(self, load_balancers):
         client = local_session(self.manager.session_factory).client('elb')
         groups = super(ELBModifyVpcSecurityGroups, self).get_groups(
-            load_balancers, 'SecurityGroups')
+            load_balancers)
         for idx, l in enumerate(load_balancers):
             client.apply_security_groups_to_load_balancer(
                 LoadBalancerName=l['LoadBalancerName'],
@@ -433,6 +433,13 @@ class SubnetFilter(net_filters.SubnetFilter):
     """ELB subnet filter"""
 
     RelatedIdsExpression = "Subnets[]"
+
+
+@filters.register('vpc')
+class VpcFilter(net_filters.VpcFilter):
+    """ELB vpc filter"""
+
+    RelatedIdsExpression = "VPCId"
 
 
 filters.register('network-location', net_filters.NetworkLocation)
@@ -675,7 +682,8 @@ class SSLPolicyFilter(Filter):
         for (elb, policy_names) in elb_policy_set:
             elb_name = elb['LoadBalancerName']
             try:
-                policies = client.describe_load_balancer_policies(
+                policies = self.manager.retry(
+                    client.describe_load_balancer_policies,
                     LoadBalancerName=elb_name,
                     PolicyNames=policy_names)['PolicyDescriptions']
             except ClientError as e:

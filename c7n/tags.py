@@ -24,7 +24,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 from concurrent.futures import as_completed
 
 from datetime import datetime, timedelta
-from dateutil import zoneinfo
+from dateutil import tz as tzutil
 from dateutil.parser import parse
 
 import itertools
@@ -274,7 +274,7 @@ class TagActionFilter(Filter):
             raise PolicyValidationError(
                 "Invalid marked-for-op op:%s in %s" % (op, self.manager.data))
 
-        tz = zoneinfo.gettz(Time.TZ_ALIASES.get(self.data.get('tz', 'utc')))
+        tz = tzutil.gettz(Time.TZ_ALIASES.get(self.data.get('tz', 'utc')))
         if not tz:
             raise PolicyValidationError(
                 "Invalid timezone specified '%s' in %s" % (
@@ -286,7 +286,7 @@ class TagActionFilter(Filter):
         op = self.data.get('op', 'stop')
         skew = self.data.get('skew', 0)
         skew_hours = self.data.get('skew_hours', 0)
-        tz = zoneinfo.gettz(Time.TZ_ALIASES.get(self.data.get('tz', 'utc')))
+        tz = tzutil.gettz(Time.TZ_ALIASES.get(self.data.get('tz', 'utc')))
 
         v = None
         for n in i.get('Tags', ()):
@@ -604,7 +604,7 @@ class TagDelayedAction(Action):
                 "mark-for-op specifies invalid op:%s in %s" % (
                     op, self.manager.data))
 
-        self.tz = zoneinfo.gettz(
+        self.tz = tzutil.gettz(
             Time.TZ_ALIASES.get(self.data.get('tz', 'utc')))
         if not self.tz:
             raise PolicyValidationError(
@@ -626,7 +626,7 @@ class TagDelayedAction(Action):
         return action_date_string
 
     def process(self, resources):
-        self.tz = zoneinfo.gettz(
+        self.tz = tzutil.gettz(
             Time.TZ_ALIASES.get(self.data.get('tz', 'utc')))
         self.id_key = self.manager.get_model().id
 
@@ -875,7 +875,7 @@ class UniversalTagDelayedAction(TagDelayedAction):
     permissions = ('resourcegroupstaggingapi:TagResources',)
 
     def process(self, resources):
-        self.tz = zoneinfo.gettz(
+        self.tz = tzutil.gettz(
             Time.TZ_ALIASES.get(self.data.get('tz', 'utc')))
         self.id_key = self.manager.get_model().id
 
@@ -952,3 +952,54 @@ def universal_retry(method, ResourceARNList, **kw):
 
         time.sleep(delay)
         ResourceARNList = list(throttles)
+
+
+def coalesce_copy_user_tags(resource, copy_tags, user_tags):
+    """
+    Returns a list of tags from resource and user supplied in
+    the format: [{'Key': 'key', 'Value': 'value'}]
+
+    Due to drift on implementation on copy-tags/tags used throughout
+    the code base, the following options are supported:
+
+        copy_tags (Tags to copy from the resource):
+          - list of str, e.g. ['key1', 'key2', '*']
+          - bool
+
+        user_tags (User supplied tags to apply):
+          - dict of key-value pairs, e.g. {Key: Value, Key2: Value}
+          - list of dict e.g. [{'Key': k, 'Value': v}]
+
+    In the case that there is a conflict in a user supplied tag
+    and an existing tag on the resource, the user supplied tags will
+    take priority.
+
+    Additionally, a value of '*' in copy_tags can be used to signify
+    to copy all tags from the resource.
+    """
+
+    assert isinstance(copy_tags, bool) or isinstance(copy_tags, list)
+    assert isinstance(user_tags, dict) or isinstance(user_tags, list)
+
+    r_tags = resource.get('Tags', [])
+
+    if isinstance(copy_tags, list):
+        if '*' in copy_tags:
+            copy_keys = set([t['Key'] for t in r_tags])
+        else:
+            copy_keys = set(copy_tags)
+
+    if isinstance(copy_tags, bool):
+        if copy_tags is True:
+            copy_keys = set([t['Key'] for t in r_tags])
+        else:
+            copy_keys = set()
+
+    if isinstance(user_tags, dict):
+        user_tags = [{'Key': k, 'Value': v} for k, v in user_tags.items()]
+
+    user_keys = set([t['Key'] for t in user_tags])
+    tags_diff = list(copy_keys.difference(user_keys))
+    resource_tags_to_copy = [t for t in r_tags if t['Key'] in tags_diff]
+    user_tags.extend(resource_tags_to_copy)
+    return user_tags

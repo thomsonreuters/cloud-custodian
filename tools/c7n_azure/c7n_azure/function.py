@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import logging
 import sys
+
 from os.path import dirname, join
 
 # The working path for the Azure Function doesn't include this file's folder
@@ -24,10 +24,11 @@ from c7n_azure import handler, entry
 
 try:
     import azure.functions as func
-    from azure.functions_worker.bindings.http import HttpRequest
+    from azure.functions_worker.bindings.queue import QueueMessage
 except ImportError:
     pass
 
+max_dequeue_count = 3
 
 def main(input):
     logging.info("Running Azure Cloud Custodian Policy")
@@ -39,22 +40,13 @@ def main(input):
 
     event = None
 
-    if type(input) is HttpRequest:
+    if type(input) is QueueMessage:
+        if input.dequeue_count > max_dequeue_count:
+            return
         event = input.get_json()
-        logging.info(event)
-
-        # handshake with event grid subscription creation
-        if 'data' in event[0] and 'validationCode' in event[0]['data']:
-            code = event[0]['data']['validationCode']
-            response = {
-                "validationResponse": code
-            }
-            return func.HttpResponse(body=json.dumps(response, indent=2), status_code=200)
 
     handler.run(event, context)
 
-    if type(input) is HttpRequest:
-        return func.HttpResponse("OK")
 
 # Need to manually initialize c7n_azure
 entry.initialize_azure()
