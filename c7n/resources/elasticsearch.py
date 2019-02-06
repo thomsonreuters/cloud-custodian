@@ -46,7 +46,7 @@ class ElasticSearchDomain(QueryResourceManager):
 
     filter_registry = filters
     _generate_arn = _account_id = None
-    retry = staticmethod(get_retry(('Throttled','ThrottlingException',)))
+    retry = staticmethod(get_retry(('Throttled',)))
 
     @property
     def generate_arn(self):
