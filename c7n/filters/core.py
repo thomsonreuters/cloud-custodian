@@ -482,7 +482,7 @@ class ValueFilter(Filter):
             if 'value_from' in self.data:
                 values = ValuesFrom(self.data['value_from'], self.manager)
                 self.v = values.get_values()
-            if 'value_sg' in self.data:
+            elif 'value_sg' in self.data:
                 values = ValuesFrom(self.data['value_sg'], self.manager)
                 self.v = values.get_columns_and_rows()
             else:
