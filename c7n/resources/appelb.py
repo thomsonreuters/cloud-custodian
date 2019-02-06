@@ -527,7 +527,7 @@ class AppELBListenerFilterBase(object):
         client = local_session(self.manager.session_factory).client('elbv2')
         self.listener_map = defaultdict(list)
         for alb in albs:
-            results = self.retry(client.describe_listeners,
+            results = client.describe_listeners(
                 LoadBalancerArn=alb['LoadBalancerArn'])
             self.listener_map[alb['LoadBalancerArn']] = results['Listeners']
 
