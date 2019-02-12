@@ -198,10 +198,12 @@ def _filter_ami_snapshots(self, snapshots):
 def _filter_nonpublic_snapshots(self, snapshots):
     if not self.data.get('value', True):
         return snapshots
+    retry = get_retry((
+        'RequestLimitExceeded', 'Client.RequestLimitExceeded'))
     client = local_session(self.manager.session_factory).client('ec2')
     publicSnapshots = []
     for snapshot in snapshots:
-        permissions = self.manager.retry(
+        permissions = retry(
             client.describe_snapshot_attribute,
             SnapshotId=snapshot['SnapshotId'],
             Attribute='createVolumePermission')['CreateVolumePermissions']
