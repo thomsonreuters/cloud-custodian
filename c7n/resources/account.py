@@ -540,6 +540,7 @@ class RequestLimitIncrease(BaseAction):
         'VPC': 'amazon-virtual-private-cloud',
         'IAM': 'aws-identity-and-access-management',
         'CloudFormation': 'aws-cloudformation',
+        'Kinesis': 'amazon-kinesis',
     }
 
     def process(self, resources):
