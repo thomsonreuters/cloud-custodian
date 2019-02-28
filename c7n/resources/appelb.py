@@ -494,10 +494,12 @@ class AppELBListenerFilterBase(object):
     permissions = ("elasticloadbalancing:DescribeListeners",)
 
     def initialize(self, albs):
+        retry = get_retry((
+            'RequestLimitExceeded', 'Client.RequestLimitExceeded', 'Throttling'))
         client = local_session(self.manager.session_factory).client('elbv2')
         self.listener_map = defaultdict(list)
         for alb in albs:
-            results = client.describe_listeners(
+            results = retry(client.describe_listeners,
                 LoadBalancerArn=alb['LoadBalancerArn'])
             self.listener_map[alb['LoadBalancerArn']] = results['Listeners']
 

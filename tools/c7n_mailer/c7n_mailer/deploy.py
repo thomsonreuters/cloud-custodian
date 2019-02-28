@@ -56,6 +56,14 @@ def get_archive(config):
             with open(os.path.join(d, t)) as fh:
                 archive.add_contents('msg-templates/%s' % t, fh.read())
 
+    ## Add Blacklist files into lambda package archive
+    black_list_dir = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', 'black-lists'))
+
+    for t in os.listdir(black_list_dir):
+        with open(os.path.join(black_list_dir, t)) as fh:
+            archive.add_contents('black-lists/%s' % t, fh.read())
+    
     function_config = copy.deepcopy(config)
     function_config['templates_folders'] = ['msg-templates/']
     archive.add_contents('config.json', json.dumps(function_config))

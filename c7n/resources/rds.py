@@ -1051,6 +1051,26 @@ class LatestSnapshot(Filter):
         return results
 
 
+@RDSSnapshot.filter_registry.register('public')
+class PublicSnapshot(Filter):
+    """Returns the public RDS snapshots.
+    """
+    schema = type_schema('public')
+    permissions = ('rds:DescribeDBSnapshotAttributes',)
+
+    def process(self, resources, event=None):
+        client = local_session(self.manager.session_factory).client('rds')
+        results = []
+        for r in resources:
+            attrs = {t['AttributeName']: t['AttributeValues']
+             for t in client.describe_db_snapshot_attributes(
+                DBSnapshotIdentifier=r['DBSnapshotIdentifier'])[
+                    'DBSnapshotAttributesResult']['DBSnapshotAttributes']}
+            if 'all' in attrs.get('restore'):
+                results.append(r)
+        return results
+
+
 @RDSSnapshot.filter_registry.register('age')
 class RDSSnapshotAge(AgeFilter):
     """Filters RDS snapshots based on age (in days)
@@ -1374,6 +1394,47 @@ class RDSSnapshotDelete(BaseAction):
         for s in snapshots_set:
             c.delete_db_snapshot(
                 DBSnapshotIdentifier=s['DBSnapshotIdentifier'])
+
+
+@RDSSnapshot.action_registry.register('make-private')
+class RDSSnapshotMakePrivate(BaseAction):
+    """Makes an RDS snapshot resource private by removing 'all' from the
+       restore attribute
+     :example:
+     .. code-block:: yaml
+             policies:
+              - name: rds-snapshot-make-public-snap-private
+                resource: rds-snapshot
+                filters:
+                  - type: public
+                actions:
+                  - make-private
+    """
+    schema = type_schema('make-private')
+    permissions = ('rds:ModifyDBSnapshotAttribute',)
+
+    def process(self, snapshots):
+        log.info("Making %d rds snapshots private", len(snapshots))
+        with self.executor_factory(max_workers=3) as w:
+            futures = []
+            for snapshot_set in chunks(reversed(snapshots), size=50):
+                futures.append(
+                    w.submit(self.process_snapshot_set, snapshot_set))
+            for f in as_completed(futures):
+                if f.exception():
+                    self.log.error(
+                        "Exception making private snapshot set \n %s",
+                        f.exception())
+        return snapshots
+
+    def process_snapshot_set(self, snapshots_set):
+        c = local_session(self.manager.session_factory).client('rds')
+        for s in snapshots_set:
+            c.modify_db_snapshot_attribute(
+                DBSnapshotIdentifier=s['DBSnapshotIdentifier'],
+                AttributeName='restore',
+                ValuesToRemove=['all', ]
+            )
 
 
 @actions.register('modify-security-groups')

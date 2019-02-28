@@ -680,7 +680,8 @@ class SSLPolicyFilter(Filter):
         for (elb, policy_names) in elb_policy_set:
             elb_name = elb['LoadBalancerName']
             try:
-                policies = client.describe_load_balancer_policies(
+                policies = self.manager.retry(
+                    client.describe_load_balancer_policies,
                     LoadBalancerName=elb_name,
                     PolicyNames=policy_names)['PolicyDescriptions']
             except ClientError as e:
