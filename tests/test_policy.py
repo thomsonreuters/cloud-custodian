@@ -312,6 +312,17 @@ class TestPolicyCollection(BaseTest):
 
 class TestPolicy(BaseTest):
 
+    def test_policy_variable_precedent(self):
+        p = self.load_policy({
+            'name': 'compute',
+            'resource': 'aws.ec2'},
+            config={'account_id': '00100100'})
+
+        v = p.get_variables({'account_id': 'foobar',
+                             'charge_code': 'oink'})
+        self.assertEqual(v['account_id'], '00100100')
+        self.assertEqual(v['charge_code'], 'oink')
+
     def test_policy_variable_interpolation(self):
 
         p = self.load_policy({
@@ -887,7 +898,7 @@ class GuardModeTest(BaseTest):
     @mock.patch("c7n.mu.LambdaManager.publish")
     def test_ec2_guard_event_pattern(self, publish):
 
-        def assert_publish(policy_lambda, alias, role):
+        def assert_publish(policy_lambda, role):
             events = policy_lambda.get_events(mock.MagicMock())
             self.assertEqual(len(events), 1)
             pattern = json.loads(events[0].render_event_pattern())
@@ -911,7 +922,7 @@ class GuardModeTest(BaseTest):
     @mock.patch("c7n.mu.LambdaManager.publish")
     def test_iam_guard_event_pattern(self, publish):
 
-        def assert_publish(policy_lambda, alias, role):
+        def assert_publish(policy_lambda, role):
             events = policy_lambda.get_events(mock.MagicMock())
             self.assertEqual(len(events), 1)
             pattern = json.loads(events[0].render_event_pattern())

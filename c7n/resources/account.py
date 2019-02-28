@@ -27,9 +27,10 @@ from c7n.actions import ActionRegistry, BaseAction
 from c7n.actions.securityhub import OtherResourcePostFinding
 from c7n.exceptions import PolicyValidationError
 from c7n.filters import Filter, FilterRegistry, ValueFilter
+from c7n.filters.multiattr import MultiAttrFilter
 from c7n.filters.missing import Missing
 from c7n.manager import ResourceManager, resources
-from c7n.utils import local_session, type_schema
+from c7n.utils import local_session, type_schema, generate_arn
 
 from c7n.resources.iam import CredentialReport
 
@@ -167,6 +168,74 @@ class CloudTrailEnabled(Filter):
         if trails:
             return []
         return resources
+
+
+@filters.register('guard-duty')
+class GuardDutyEnabled(MultiAttrFilter):
+    """Check if the guard duty service is enabled.
+
+    This allows looking at account's detector and its associated
+    master if any.
+
+    :example:
+
+     Check to ensure guard duty is active on account and associated to a master.
+
+    .. code-block:: yaml
+
+            policies:
+              - name: guardduty-enabled
+                resource: account
+                filters:
+                  - type: guard-duty
+                    Detector.Status: ENABLED
+                    Master.AccountId: "00011001"
+                    Master.RelationshipStatus: ENABLED
+    """
+
+    schema = {
+        'type': 'object',
+        'additionalProperties': False,
+        'properties': {
+            'type': {'enum': ['guard-duty']},
+            'match-operator': {'enum': ['or', 'and']}},
+        'patternProperties': {
+            '^Detector': {'oneOf': [{'type': 'object'}, {'type': 'string'}]},
+            '^Master': {'oneOf': [{'type': 'object'}, {'type': 'string'}]}},
+    }
+
+    annotation = "c7n:guard-duty"
+    permissions = (
+        'guardduty:GetMasterAccount',
+        'guardduty:ListDetectors',
+        'guardduty:GetDetector')
+
+    def validate(self):
+        attrs = set()
+        for k in self.data:
+            if k.startswith('Detector') or k.startswith('Master'):
+                attrs.add(k)
+        self.multi_attrs = attrs
+        return super(GuardDutyEnabled, self).validate()
+
+    def get_target(self, resource):
+        if self.annotation in resource:
+            return resource[self.annotation]
+
+        client = local_session(self.manager.session_factory).client('guardduty')
+        # detectors are singletons too.
+        detector_ids = client.list_detectors().get('DetectorIds')
+
+        if not detector_ids:
+            return None
+        else:
+            detector_id = detector_ids.pop()
+
+        detector = client.get_detector(DetectorId=detector_id)
+        detector.pop('ResponseMetadata', None)
+        master = client.get_master_account(DetectorId=detector_id).get('master')
+        resource[self.annotation] = r = {'Detector': detector, 'Master': master}
+        return r
 
 
 @filters.register('check-config')
@@ -587,14 +656,15 @@ class RequestLimitIncrease(BaseAction):
                 ccEmailAddresses=self.data.get('notify', []))
 
 
-def cloudtrail_policy(original, bucket_name, account_id):
+def cloudtrail_policy(original, bucket_name, account_id, bucket_region):
     '''add CloudTrail permissions to an S3 policy, preserving existing'''
     ct_actions = [
         {
             'Action': 's3:GetBucketAcl',
             'Effect': 'Allow',
             'Principal': {'Service': 'cloudtrail.amazonaws.com'},
-            'Resource': 'arn:aws:s3:::' + bucket_name,
+            'Resource': generate_arn(
+                service='s3', resource=bucket_name, region=bucket_region),
             'Sid': 'AWSCloudTrailAclCheck20150319',
         },
         {
@@ -605,9 +675,8 @@ def cloudtrail_policy(original, bucket_name, account_id):
             },
             'Effect': 'Allow',
             'Principal': {'Service': 'cloudtrail.amazonaws.com'},
-            'Resource': 'arn:aws:s3:::%s/AWSLogs/%s/*' % (
-                bucket_name, account_id
-            ),
+            'Resource': generate_arn(
+                service='s3', resource=bucket_name, region=bucket_region),
             'Sid': 'AWSCloudTrailWrite20150319',
         },
     ]
@@ -692,7 +761,7 @@ class EnableTrail(BaseAction):
         kms_key = self.data.get('kms-key', '')
         create_bucket = self.data.get('create-bucket', False)
 
-        s3client = session.client('s3')
+        s3client = session.client('s3', region_name=bucket_region)
         s3 = boto3.resource('s3')
         exists = True
         try:
@@ -719,7 +788,8 @@ class EnableTrail(BaseAction):
                 current_policy = None
 
             policy_json = cloudtrail_policy(
-                current_policy, bucket_name, self.manager.config.account_id)
+                current_policy, bucket_name,
+                self.manager.config.account_id, bucket_region)
 
             s3client.put_bucket_policy(Bucket=bucket_name, Policy=policy_json)
         trails = client.describe_trails().get('trailList', ())
@@ -802,7 +872,7 @@ class EnableDataEvents(BaseAction):
     """Ensure all buckets in account are setup to log data events.
 
     Note this works via a single trail for data events per
-    (https://goo.gl/1ux7RG).
+    https://aws.amazon.com/about-aws/whats-new/2017/09/aws-cloudtrail-enables-option-to-add-all-amazon-s3-buckets-to-data-events/
 
     This trail should NOT be used for api management events, the
     configuration here is soley for data events. If directed to create
