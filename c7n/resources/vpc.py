@@ -793,11 +793,12 @@ class SecurityGroupCustomException(Filter):
         if resourceInDictionary:
             for perm in resource['IpPermissions']:
                 if "FromPort" in perm and "ToPort" in perm:
-                    permPortsSet = set(range(int(perm['FromPort']), int(perm['ToPort']) + 1))
-                    exceptionPortsSet = exceptionDict[resource['GroupName']]
-                    resourceIsViolator = len(permPortsSet - exceptionPortsSet) > 0
-                    if resourceIsViolator:
-                        break
+                    if (perm['IpRanges'] and perm['IpRanges'][0]['CidrIp']=="0.0.0.0/0") or (perm['Ipv6Ranges'] and perm['Ipv6Ranges'][0]['CidrIpv6'=="::/0"]):
+                        permPortsSet = set(range(int(perm['FromPort']), int(perm['ToPort']) + 1))
+                        exceptionPortsSet = exceptionDict[resource['GroupName']]
+                        resourceIsViolator = len(permPortsSet - exceptionPortsSet) > 0
+                        if resourceIsViolator:
+                            break
         if resourceIsViolator or not resourceInDictionary:
             filteredList.append(resource)
 
