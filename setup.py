@@ -26,10 +26,11 @@ setup(
         "boto3==1.9.249",
         "botocore==1.12.249",
         "python-dateutil==2.6",
-        "pyyaml",
-        "jsonschema",
-        "jsonpatch>=1.21",
-        "argcomplete",
-        "tabulate==0.8.2"
+        "pyyaml==3.12",
+        "jsonschema==2.5.1",
+        "jsonpatch==1.2.1",
+        "argcomplete==1.8.2",
+        "tabulate==0.8.2",
+        "futures==3.1.1"
     ],
 )
