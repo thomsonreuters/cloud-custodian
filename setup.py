@@ -28,7 +28,7 @@ setup(
         "python-dateutil==2.6",
         "pyyaml==3.12",
         "jsonschema==2.5.1",
-        "jsonpatch==1.2.1",
+        "jsonpatch==1.2",
         "argcomplete==1.8.2",
         "tabulate==0.8.2",
         "futures==3.1.1"
